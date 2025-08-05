@@ -4,6 +4,7 @@ const cors = require('cors');
 const app = express();
 const authRoutes = require('./routes/auth');
 const bankRoutes = require('./routes/bank');
+app.use('/api/bank', bankRoutes);
 const adminRoutes = require('./routes/admin');
 
 app.use(cors());
