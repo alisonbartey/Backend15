@@ -5,11 +5,7 @@ const cors = require('cors');
 const app = express(); // ✅ Define app first
 
 // ✅ CORS config — allow Netlify frontend
-app.use(cors({
-  origin: 'https://mybank-admin-com.netlify.app',
-  credentials: true
-}));
-
+app.use(cors()); // This allows everything, just for now
 app.use(express.json());
 
 // ✅ Routes
