@@ -1,13 +1,17 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+app.use(cors());
 const app = express();
 const authRoutes = require('./routes/auth');
 const bankRoutes = require('./routes/bank');
 app.use('/api/bank', bankRoutes);
 const adminRoutes = require('./routes/admin');
 
-app.use(cors());
+app.use(cors({
+  origin: 'https://mybank-admin-com.netlify.app',
+  credentials: true
+}));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
