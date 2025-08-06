@@ -75,5 +75,20 @@ router.get('/transactions', async (req, res) => {
 
   res.json(transactions);
 });
+// 📄 GET /api/bank/balance - Get current user's balance
+router.get('/balance', authenticateToken, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { balance: true }
+    });
 
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ balance: user.balance });
+  } catch (err) {
+    console.error('Balance fetch error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 module.exports = router;
