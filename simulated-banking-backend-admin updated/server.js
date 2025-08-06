@@ -35,10 +35,14 @@ app.use((req, res, next) => {
 const authRoutes = require('./routes/auth');
 const bankRoutes = require('./routes/bank');
 const adminRoutes = require('./routes/admin');
+const transactionRoutes = require('./routes/transactions'); // Handles /api/transactions
+const transferRoutes = require('./routes/transfer');        // Handles /api/transfer
 
 app.use('/api/auth', authRoutes);
 app.use('/api/bank', bankRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/transactions', transactionRoutes); // For GETting transaction history
+app.use('/api/transfer', transferRoutes);        // For POSTing transfers
 
 // Default route
 app.get('/', (req, res) => {
