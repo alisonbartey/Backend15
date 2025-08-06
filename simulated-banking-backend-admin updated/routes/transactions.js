@@ -11,13 +11,15 @@ router.get('/', authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     const sent = await prisma.transaction.findMany({
-      where: { from: userId },
-      include: { toUser: true }
+      where: { fromId: userId },
+      include: { toUser: true },
+      orderBy: { timestamp: 'desc' }
     });
 
     const received = await prisma.transaction.findMany({
-      where: { to: userId },
-      include: { fromUser: true }
+      where: { toId: userId },
+      include: { fromUser: true },
+      orderBy: { timestamp: 'desc' }
     });
 
     res.json({ sent, received });
