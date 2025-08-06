@@ -6,7 +6,7 @@ const { authenticateToken } = require('../middleware/auth');
 const prisma = new PrismaClient();
 
 // 💸 TRANSFER funds between users
-router.post('/transfer', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   const { toEmail, amount } = req.body;
 
   if (!toEmail || !amount || isNaN(amount) || amount <= 0) {
@@ -32,8 +32,8 @@ router.post('/transfer', authenticateToken, async (req, res) => {
       }),
       prisma.transaction.create({
         data: {
-          from: sender.id,
-          to: receiver.id,
+          fromId: sender.id,
+          toId: receiver.id,
           amount
         }
       })
