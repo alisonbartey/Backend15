@@ -5,22 +5,28 @@ const { authenticateToken } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 
-// 💸 TRANSFER funds between users
+// 💸 POST /api/transfer - Transfer funds between users
 router.post('/', authenticateToken, async (req, res) => {
   const { toEmail, amount } = req.body;
 
-  if (!toEmail || !amount || isNaN(amount) || amount <= 0) {
-    return res.status(400).json({ error: 'Invalid input' });
+  if (!toEmail || isNaN(amount) || amount <= 0) {
+    return res.status(400).json({ error: 'Invalid recipient or amount' });
   }
 
   try {
-    const sender = await prisma.user.findUnique({ where: { id: req.user.id } });
-    const receiver = await prisma.user.findUnique({ where: { email: toEmail } });
+    const sender = await prisma.user.findUnique({
+      where: { id: req.user.id }
+    });
+
+    const receiver = await prisma.user.findUnique({
+      where: { email: toEmail }
+    });
 
     if (!receiver) return res.status(404).json({ error: 'Recipient not found' });
     if (sender.id === receiver.id) return res.status(400).json({ error: 'Cannot transfer to self' });
     if (sender.balance < amount) return res.status(400).json({ error: 'Insufficient funds' });
 
+    // Execute transaction
     await prisma.$transaction([
       prisma.user.update({
         where: { id: sender.id },
@@ -34,7 +40,7 @@ router.post('/', authenticateToken, async (req, res) => {
         data: {
           fromId: sender.id,
           toId: receiver.id,
-          amount
+          amount: parseFloat(amount)
         }
       })
     ]);
