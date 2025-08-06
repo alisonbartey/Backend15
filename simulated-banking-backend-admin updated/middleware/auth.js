@@ -7,26 +7,34 @@ async function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
+    console.log('❌ No token found in Authorization header');
+    return res.sendStatus(401);
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
 
-    if (!user) {
-      return res.status(403).json({ error: 'User not found or unauthorized' });
+    // ✅ Debug logs
+    console.log('📦 Decoded token:', decoded);
+    console.log('🔍 Extracted userId:', decoded.userId);
+
+    req.user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+
+    if (!req.user) {
+      console.log('❌ User not found in database for ID:', decoded.userId);
+      return res.sendStatus(403);
     }
 
-    req.user = user;
+    console.log('✅ Authenticated user:', req.user.email);
     next();
   } catch (err) {
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    console.error('❗ Token verification failed:', err.message);
+    res.status(403).json({ error: 'Invalid token' });
   }
 }
 
 function isAdmin(req, res, next) {
-  if (!req.user || req.user.role !== 'admin') {
+  if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Admins only' });
   }
   next();
