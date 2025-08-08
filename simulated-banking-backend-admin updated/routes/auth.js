@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../middleware/auth');
+const { sendEmail } = require('../utils/email'); // 📩 Import email utility
 
 const prisma = new PrismaClient();
 
@@ -35,6 +36,25 @@ router.post('/login', async (req, res) => {
 
     console.log(`✅ Login successful for ${email}`);
 
+    // 📧 Send login notification email
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Login Notification - Wells Fargo Bank',
+        html: `
+          <h2>Login Alert</h2>
+          <p>Hello ${user.name},</p>
+          <p>Your account was just logged into on ${new Date().toLocaleString()}.</p>
+          <p>If this wasn't you, please contact support immediately.</p>
+          <br>
+          <p>— Wells Fargo Bank Security Team</p>
+        `
+      });
+      console.log(`📩 Login email sent to ${user.email}`);
+    } catch (err) {
+      console.error('⚠️ Failed to send login email:', err.message);
+    }
+
     res.json({
       token,
       role: user.role,
@@ -54,7 +74,7 @@ router.get('/me', authenticateToken, async (req, res) => {
     console.log('🔍 Authenticated user ID:', req.user.id);
 
     const user = await prisma.user.findUnique({
-      where: { id: req.user.id }, // ✅ FIXED: used req.user.id directly
+      where: { id: req.user.id },
       select: {
         name: true,
         email: true,
