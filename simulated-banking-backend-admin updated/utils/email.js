@@ -1,12 +1,13 @@
 // utils/email.js
 const { Resend } = require('resend');
 
-const resend = new Resend(process.env.RESEND_API_KEY); // Store your API key in .env
+// Load API key from environment variables
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function sendEmail({ to, subject, html }) {
   try {
     const response = await resend.emails.send({
-      from: 'Your Bank <noreply@yourbank.com>', // Must be verified in Resend
+      from: 'Wells Fargo Bank <onboarding@resend.dev>', // Using Resend's onboard sender
       to,
       subject,
       html,
