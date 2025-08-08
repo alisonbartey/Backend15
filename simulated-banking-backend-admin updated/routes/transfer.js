@@ -1,26 +1,11 @@
+// routes/transfer.js
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../middleware/auth');
-const { Resend } = require('resend');
+const { sendEmail } = require('../utils/email'); // 📧 Import email utility
 
 const prisma = new PrismaClient();
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Helper to send email alerts
-async function sendEmailAlert(to, subject, body) {
-  try {
-    await resend.emails.send({
-      from: process.env.EMAIL_FROM, // e.g. "Wells Fargo Alerts <alerts@yourdomain.com>"
-      to,
-      subject,
-      html: body
-    });
-    console.log(`📩 Email sent to ${to}`);
-  } catch (err) {
-    console.error(`❌ Failed to send email to ${to}:`, err);
-  }
-}
 
 router.post('/', authenticateToken, async (req, res) => {
   const { toEmail, amount } = req.body;
@@ -61,35 +46,33 @@ router.post('/', authenticateToken, async (req, res) => {
       })
     ]);
 
-    // Format email HTML
-    const formattedAmount = `$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    const date = new Date().toLocaleString();
+    // Send Debit Alert to Sender
+    await sendEmail({
+      to: sender.email,
+      subject: 'Debit Alert - Transfer Successful',
+      html: `
+        <h2>Debit Alert</h2>
+        <p>Dear ${sender.name || 'Customer'},</p>
+        <p>Your account has been debited with <strong>$${amount.toFixed(2)}</strong> to ${receiver.name || receiver.email}.</p>
+        <p>Available Balance: $${(sender.balance - amount).toFixed(2)}</p>
+        <p>Thank you for banking with us.</p>
+      `
+    });
 
-    const debitEmail = `
-      <h2>Wells Fargo Debit Alert</h2>
-      <p>Hello ${sender.name},</p>
-      <p>A debit of <b>${formattedAmount}</b> has been made from your account on ${date}.</p>
-      <p>Recipient: ${receiver.name} (${receiver.email})</p>
-      <p>If you did not authorize this transaction, please contact us immediately.</p>
-      <hr>
-      <small>Wells Fargo Online Banking</small>
-    `;
+    // Send Credit Alert to Receiver
+    await sendEmail({
+      to: receiver.email,
+      subject: 'Credit Alert - Funds Received',
+      html: `
+        <h2>Credit Alert</h2>
+        <p>Dear ${receiver.name || 'Customer'},</p>
+        <p>Your account has been credited with <strong>$${amount.toFixed(2)}</strong> from ${sender.name || sender.email}.</p>
+        <p>Available Balance: $${(receiver.balance + amount).toFixed(2)}</p>
+        <p>Thank you for banking with us.</p>
+      `
+    });
 
-    const creditEmail = `
-      <h2>Wells Fargo Credit Alert</h2>
-      <p>Hello ${receiver.name},</p>
-      <p>A credit of <b>${formattedAmount}</b> has been received in your account on ${date}.</p>
-      <p>Sender: ${sender.name} (${sender.email})</p>
-      <p>You can view your updated balance in the Wells Fargo app or online.</p>
-      <hr>
-      <small>Wells Fargo Online Banking</small>
-    `;
-
-    // Send emails
-    await sendEmailAlert(sender.email, 'Debit Alert', debitEmail);
-    await sendEmailAlert(receiver.email, 'Credit Alert', creditEmail);
-
-    res.json({ message: 'Transfer successful & alerts sent' });
+    res.json({ message: 'Transfer successful' });
   } catch (err) {
     console.error('Transfer error:', err);
     res.status(500).json({ error: 'Server error' });
