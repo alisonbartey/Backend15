@@ -22,11 +22,13 @@ router.use(authenticateToken, isAdmin);
 router.get('/dashboard', async (req, res) => {
   try {
     const [
-      totalUsers,
-      totalTransactions,
-      totalVolume,
-      activeUsers,
-      frozenUsers,
-      recentTransactions,
-      dailyStats
-    ]
+  totalUsers,
+  totalTransactions,
+  totalVolume,
+  activeUsers,
+  frozenUsers,
+  recentTransactions,
+  dailyStats
+] = await Promise.all([
+  // queries here
+]);
