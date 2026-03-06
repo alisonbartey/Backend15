@@ -1,3 +1,23 @@
+model User {
+  id                String       @id @default(cuid())
+  name              String
+  email             String       @unique
+  password          String
+  phone             String?
+  role              String       @default("USER")
+  isActive          Boolean      @default(true)
+  isVerified        Boolean      @default(false)
+  balance           Float        @default(0)
+  photoUrl          String?
+  lastLogin         DateTime?
+  passwordResetToken String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  accounts          Account[]
+  transactions      Transaction[]
+}
+
 model Account {
   id               String   @id @default(cuid())
   userId           String
@@ -5,21 +25,10 @@ model Account {
   accountNumber    String   @unique
   balance          Float
   availableBalance Float
+  currency         String
   status           String
   nickname         String?
   createdAt        DateTime @default(now())
 
-  user             User @relation(fields: [userId], references: [id])
-}
-
-model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  password     String
-  fullName     String
-  isAdmin      Boolean       @default(false)
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  transactions Transaction[]
-  accounts     Account[]
+  user             User     @relation(fields: [userId], references: [id])
 }
