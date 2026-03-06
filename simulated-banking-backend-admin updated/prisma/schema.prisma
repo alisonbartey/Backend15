@@ -1,10 +1,31 @@
-# 1. Save the schema above to prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
 
-# 2. Create migration
-npx prisma migrate dev --name full_schema_setup
+datasource db {
+  provider = "postgresql" // or mysql/sqlite
+  url      = env("DATABASE_URL")
+}
 
-# 3. Generate client
-npx prisma generate
+model User {
+  id          String        @id @default(cuid())
+  email       String        @unique
+  password    String
+  fullName    String
+  isAdmin     Boolean       @default(false)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  transactions Transaction[]
+}
 
-# 4. (Optional) Seed with test data
-npx prisma db seed
+model Transaction {
+  id          String   @id @default(cuid())
+  fromUserId  String
+  toUserId    String
+  amount      Float
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+
+  fromUser    User @relation("fromUser", fields: [fromUserId], references: [id])
+  toUser      User @relation("toUser", fields: [toUserId], references: [id])
+}
