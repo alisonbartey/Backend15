@@ -1,45 +1,20 @@
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 
-// ✅ Middleware to verify JWT and attach user
-async function authenticateToken(req, res, next) {
+const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
-
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  
   if (!token) {
-    console.log('❌ No token provided');
-    return res.sendStatus(401); // Unauthorized
+    return res.status(401).json({ error: 'Access token required' });
   }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // ✅ Fetch full user from DB
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId }
-    });
-
-    if (!user) {
-      console.log('❌ Token valid, but user not found');
-      return res.sendStatus(403); // Forbidden
+  
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
     }
-
-    req.user = user; // ✅ Attach full user object to request
+    req.user = user;
     next();
-  } catch (err) {
-    console.error('❌ Invalid token:', err.message);
-    res.status(403).json({ error: 'Invalid token' }); // Forbidden
-  }
-}
+  });
+};
 
-// ✅ Middleware to check admin access
-function isAdmin(req, res, next) {
-  if (req.user.role !== 'admin') {
-    console.log('❌ Access denied: Not an admin');
-    return res.status(403).json({ error: 'Admins only' });
-  }
-  next();
-}
-
-module.exports = { authenticateToken, isAdmin };
+module.exports = { authenticateToken };
