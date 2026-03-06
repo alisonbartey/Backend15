@@ -162,13 +162,12 @@ router.post('/login', [
       include: {
         accounts: {
           select: {
+            select: {
             id: true,
             accountType: true,
             accountNumber: true,
             balance: true,
-            availableBalance: true,
-            status: true,
-            nickname: true
+            isActive: true  // ✅ Use existing field instead
           }
         }
       }
