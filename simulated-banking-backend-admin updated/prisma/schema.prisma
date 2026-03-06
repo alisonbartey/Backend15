@@ -1,25 +1,25 @@
 model Account {
-  id             String   @id @default(cuid())
-  userId         String
-  accountType    String
-  accountNumber  String   @unique
-  balance        Float
+  id               String   @id @default(cuid())
+  userId           String
+  accountType      String
+  accountNumber    String   @unique
+  balance          Float
   availableBalance Float
-  status         String
-  nickname       String?
-  createdAt      DateTime @default(now())
+  status           String
+  nickname         String?
+  createdAt        DateTime @default(now())
 
-  user           User @relation(fields: [userId], references: [id])
+  user             User @relation(fields: [userId], references: [id])
 }
 
 model User {
-  id          String        @id @default(cuid())
-  email       String        @unique
-  password    String
-  fullName    String
-  isAdmin     Boolean       @default(false)
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
+  id           String        @id @default(cuid())
+  email        String        @unique
+  password     String
+  fullName     String
+  isAdmin      Boolean       @default(false)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
   transactions Transaction[]
-  accounts    Account[]
+  accounts     Account[]
 }
