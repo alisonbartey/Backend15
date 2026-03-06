@@ -83,42 +83,53 @@ router.get('/', [
     const totalCount = await prisma.transaction.count({ where: whereClause });
 
     // Fetch transactions with all relations
-    const transactions = await prisma.transaction.findMany({
-      where: whereClause,
-      include: {
-        fromUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        toUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        fromAccount: {
-          select: {
-            id: true,
-            accountType: true,
-            accountNumber: true
-          }
-        },
-        toAccount: {
-          select: {
-            id: true,
-            accountType: true,
-            accountNumber: true
-          }
-        }
-      },
-      orderBy: { timestamp: 'desc' },
-      skip: parseInt(offset),
-      take: parseInt(limit)
-    });
+    // Check authentication
+if (!req.user || !req.user.id) {
+  return res.status(401).json({ error: 'Not authenticated' });
+}
+
+const transactions = await prisma.transaction.findMany({
+  where: {
+    OR: [
+      { fromUserId: req.user.id },  // ✅ Correct field name
+      { toUserId: req.user.id }     // ✅ Correct field name
+    ]
+  },
+  include: {
+    fromUser: { 
+      select: { 
+        id: true, 
+        fullName: true,  // ✅ Use fullName not name
+        email: true 
+      } 
+    },
+    toUser: { 
+      select: { 
+        id: true, 
+        fullName: true,  // ✅ Use fullName not name
+        email: true 
+      } 
+    }
+  },
+  orderBy: { createdAt: 'desc' },  // ✅ Use createdAt not timestamp
+  take: 20,
+  skip: 0
+});
+
+// Format response for frontend
+const formatted = transactions.map(tx => ({
+  id: tx.id,
+  type: tx.fromUserId === req.user.id ? 'sent' : 'received',
+  amount: tx.amount,
+  status: tx.status,
+  description: tx.description,
+  memo: tx.memo,
+  sender: tx.fromUser?.fullName || tx.fromUser?.email,
+  receiver: tx.toUser?.fullName || tx.toUser?.email,
+  timestamp: tx.createdAt  // ✅ Frontend expects timestamp
+}));
+
+res.json(formatted);
 
     // Format for frontend compatibility
     const formattedTransactions = transactions.map(tx => {
