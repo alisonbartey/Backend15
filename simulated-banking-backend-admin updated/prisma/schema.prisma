@@ -7,58 +7,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model users {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email       String   @unique
-  password    String
-  fullName    String?  @map("full_name")
-  phone       String?
-  photoUrl    String?  @map("photo_url")
-  isVerified  Boolean? @default(false) @map("is_verified")
-  isActive    Boolean? @default(true) @map("is_active")
-  isAdmin     Boolean? @default(false) @map("is_admin")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt   DateTime? @map("updated_at") @db.Timestamp(6)
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique
+  password      String
+  fullName      String?  @map("full_name")
+  phone         String?
+  photoUrl      String?  @map("photo_url")
+  isVerified    Boolean? @default(false) @map("is_verified")
+  isActive      Boolean? @default(true) @map("is_active")
+  isAdmin       Boolean? @default(false) @map("is_admin")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  accounts      accounts[]
-  sentTransactions    transactions[] @relation("SentTransactions")
-  receivedTransactions transactions[] @relation("ReceivedTransactions")
+  // Relations - THESE WERE MISSING!
+  accounts      Account[]
+  sentTransactions    Transaction[] @relation("SentTransactions")
+  receivedTransactions Transaction[] @relation("ReceivedTransactions")
 
   @@map("users")
 }
 
-model accounts {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String   @map("user_id") @db.Uuid
-  accountType   String   @map("account_type")
-  accountNumber String   @unique @map("account_number")
-  balance       Decimal? @default(0) @db.Decimal(15, 2)
-  isActive      Boolean? @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+model Account {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  accountType     String   @map("account_type")
+  accountNumber   String   @unique @map("account_number")
+  balance         Decimal? @default(0) @db.Decimal(15, 2)
+  isActive        Boolean? @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
-  user          users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Relation
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("accounts")
 }
 
-model transactions {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fromUserId      String   @map("from_user_id") @db.Uuid
-  toUserId        String?  @map("to_user_id") @db.Uuid
-  fromAccountId   String?  @map("from_account_id") @db.Uuid
-  toAccountId     String?  @map("to_account_id") @db.Uuid
+model Transaction {
+  id                String   @id @default(uuid()) @db.Uuid
+  fromUserId        String   @map("from_user_id") @db.Uuid
+  toUserId          String?  @map("to_user_id") @db.Uuid
+  fromAccountId     String?  @map("from_account_id") @db.Uuid
+  toAccountId       String?  @map("to_account_id") @db.Uuid
   
-  transactionType String?  @default("internal") @map("transaction_type")
-  amount          Decimal  @db.Decimal(15, 2)
-  status          String?  @default("completed")
-  description     String?
-  memo            String?
+  transactionType   String?  @default("internal") @map("transaction_type")
+  amount            Decimal  @db.Decimal(15, 2)
+  status            String?  @default("completed")
+  description       String?
+  memo              String?
   
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt       DateTime? @map("updated_at") @db.Timestamp(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  fromUser        users    @relation("SentTransactions", fields: [fromUserId], references: [id])
-  toUser          users?   @relation("ReceivedTransactions", fields: [toUserId], references: [id])
+  // Relations
+  fromUser          User     @relation("SentTransactions", fields: [fromUserId], references: [id])
+  toUser            User?    @relation("ReceivedTransactions", fields: [toUserId], references: [id])
 
   @@map("transactions")
 }
