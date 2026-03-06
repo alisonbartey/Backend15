@@ -5,24 +5,25 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const { PrismaClient } = require('@prisma/client');
+const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
 
-// ✅ Initialize Prisma
+// ✅ Initialize Prisma (single instance)
 const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
 });
 
 // ✅ Graceful shutdown for Prisma
-process.on('beforeExit', async () => {
-  await prisma.$disconnect();
-});
-process.on('SIGINT', async () => {
+const shutdown = async () => {
   await prisma.$disconnect();
   process.exit(0);
-});
+};
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+process.on('beforeExit', async () => await prisma.$disconnect());
 
-// ✅ Security: Helmet headers
+// ✅ Security headers
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -35,104 +36,82 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// ✅ Allowed frontend domains (add your new ones)
+// ✅ CORS
 const allowedOrigins = [
   'https://wells-fargo-online-banking.vercel.app',
-  'https://admin-frontend-2h92r9pm2-victors-projects-865c1228.vercel.app',
   'http://localhost:3000',
-  'http://localhost:5500',
   'http://127.0.0.1:5500',
-  'null' // For local file:// testing
+  'null'
 ];
 
-// ✅ CORS middleware
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.error(`🚫 Blocked by CORS: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
+    if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+    else callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET','POST','PUT','DELETE','OPTIONS','PATCH'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With']
 }));
-
-// ✅ Rate limiting: General API
-app.set('trust proxy', 1);
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: { error: 'Too many requests, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// ✅ Rate limiting: Auth endpoints (stricter)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  skipSuccessfulRequests: true,
-  message: { error: 'Too many login attempts, please try again later' },
-});
 
 // ✅ Logging
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// ✅ Parse incoming JSON (increased limit for base64 images)
+// ✅ JSON parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ Request logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log(`Origin: ${req.headers.origin || 'none'}`);
-  next();
-});
-
-// ✅ Attach Prisma to requests (optional convenience)
+// ✅ Attach Prisma to requests
 app.use((req, res, next) => {
   req.prisma = prisma;
   next();
 });
 
-// ✅ Health check endpoint (for monitoring)
+// ✅ Rate limiting
+const generalLimiter = rateLimit({
+  windowMs: 15*60*1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, try again later' }
+});
+const authLimiter = rateLimit({
+  windowMs: 15*60*1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many login attempts, try again later' }
+});
+app.use(generalLimiter);
+
+// ✅ Health check
 app.get('/health', async (req, res) => {
   try {
-    // Test database connection
     await prisma.$queryRaw`SELECT 1`;
-    
-    res.status(200).json({
-      status: 'healthy',
-      database: 'connected',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development'
-    });
+    res.status(200).json({ status: 'healthy', database: 'connected', uptime: process.uptime() });
   } catch (err) {
-    res.status(503).json({
-      status: 'unhealthy',
-      database: 'disconnected',
-      error: err.message
-    });
+    res.status(503).json({ status: 'unhealthy', database: 'disconnected', error: err.message });
   }
 });
 
-// ✅ Routes
+// ✅ Auth routes (no token required)
 const authRoutes = require('./routes/auth');
+app.use('/api/auth/login', authLimiter); // stricter limit
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth', authRoutes);
+
+// ✅ Protect all other /api routes
+app.use('/api', (req, res, next) => {
+  if (!req.path.startsWith('/auth')) authenticateToken(req, res, next);
+  else next();
+});
+
+// ✅ Import other routes
 const bankRoutes = require('./routes/bank');
 const adminRoutes = require('./routes/admin');
 const transactionRoutes = require('./routes/transactions');
 const transferRoutes = require('./routes/transfer');
 const userRoutes = require('./routes/user');
 
-// Apply stricter rate limit to auth routes
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
-
-app.use('/api/auth', authRoutes);
 app.use('/api/bank', bankRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/transactions', transactionRoutes);
@@ -142,8 +121,7 @@ app.use('/api/user', userRoutes);
 // ✅ Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'Wells Fargo API is running 🚀',
-    version: '1.0.0',
+    message: 'Wells Fargo API running 🚀',
     environment: process.env.NODE_ENV || 'development',
     endpoints: {
       auth: '/api/auth',
@@ -153,69 +131,31 @@ app.get('/', (req, res) => {
       user: '/api/user',
       admin: '/api/admin',
       health: '/health'
-    },
-    documentation: 'API documentation available at /docs (coming soon)'
+    }
   });
 });
 
 // ✅ 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
-    error: 'Endpoint not found',
-    path: req.path,
-    method: req.method
-  });
+  res.status(404).json({ error: 'Endpoint not found', path: req.path, method: req.method });
 });
 
 // ✅ Global error handler
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err.message);
-  
-  // Log to database if it's a serious error
-  if (err.status >= 500 || !err.status) {
-    console.error(err.stack);
-    
-    // Optional: Log to audit system
-    if (req.user?.id) {
-      prisma.auditLog.create({
-        data: {
-          userId: req.user.id,
-          action: 'server_error',
-          details: { error: err.message, path: req.path },
-          success: false,
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent']
-        }
-      }).catch(console.error);
-    }
-  }
-  
-  // Don't leak error details in production
   const isDev = process.env.NODE_ENV === 'development';
-  
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error',
     ...(isDev && { stack: err.stack, path: req.path })
   });
 });
 
-// ✅ Start the server
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📍 Allowed origins: ${allowedOrigins.length} domains`);
-  console.log(`🔧 Health check: http://localhost:${PORT}/health`);
-});
-
-// ✅ Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  await prisma.$disconnect();
-  server.close(() => {
-    console.log('Process terminated');
-    process.exit(0);
-  });
+  console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🔧 Health: http://localhost:${PORT}/health`);
 });
 
 // Export for testing
