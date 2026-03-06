@@ -22,32 +22,37 @@ router.use(authenticateToken);
 router.get('/balance', async (req, res) => {
   try {
     // Get user's primary checking account
-    const account = await prisma.account.findFirst({
-      where: {
-        userId: req.user.id,
-        accountType: 'checking',
-        status: 'active'
-      },
-      select: {
-        id: true,
-        accountNumber: true,
-        balance: true,
-        availableBalance: true,
-        accountType: true
-      }
-    });
+    // Check authentication
+if (!req.user || !req.user.id) {
+  return res.status(401).json({ error: 'Not authenticated' });
+}
 
-    if (!account) {
-      return res.status(404).json({ error: 'No active checking account found' });
-    }
+const account = await prisma.account.findFirst({
+  where: {
+    userId: req.user.id,
+    accountType: "checking",
+    isActive: true  // ✅ Use isActive
+  },
+  select: {
+    id: true,
+    accountNumber: true,
+    balance: true,
+    // availableBalance removed - calculate on frontend if needed
+    accountType: true,
+    isActive: true
+  }
+});
 
-    res.json({
-      accountId: account.id,
-      accountNumber: maskAccountNumber(account.accountNumber),
-      balance: account.balance,
-      availableBalance: account.availableBalance,
-      accountType: account.accountType
-    });
+if (!account) {
+  return res.status(404).json({ error: 'No checking account found' });
+}
+
+// Return balance only (frontend expects {balance})
+res.json({ 
+  balance: account.balance,
+  accountNumber: account.accountNumber 
+});
+  
 
   } catch (err) {
     console.error('Balance fetch error:', err);
