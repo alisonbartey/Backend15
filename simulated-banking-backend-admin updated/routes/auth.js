@@ -211,7 +211,7 @@ router.post('/login', [
     console.log(`✅ Login successful for ${email}`);
 
     // Send login notification
-    try {
+   /* try {
       await sendEmail({
         to: user.email,
         subject: 'Login Notification - Wells Fargo',
@@ -225,7 +225,7 @@ router.post('/login', [
       });
     } catch (err) {
       console.error('Login email failed:', err.message);
-    }
+    }*/
 
     res.json({
       token,
