@@ -162,7 +162,6 @@ router.post('/login', [
       include: {
         accounts: {
           select: {
-            select: {
             id: true,
             accountType: true,
             accountNumber: true,
