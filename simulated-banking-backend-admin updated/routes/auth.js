@@ -257,15 +257,24 @@ router.post('/login', [
 // 🙋‍♂️ GET CURRENT USER (Enhanced with accounts - matches frontend)
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      include: {
-        accounts: {
-          where: { status: { in: ['active', 'closed'] } },
-          orderBy: { createdAt: 'asc' }
-        }
+    // Make sure req.user exists from JWT
+if (!req.user || !req.user.id) {
+  return res.status(401).json({ error: 'Not authenticated' });
+}
+
+const user = await prisma.user.findUnique({
+  where: { id: req.user.id },
+  include: {
+    accounts: {
+      where: {
+        isActive: true  // ✅ Use isActive instead of status
+      },
+      orderBy: {
+        createdAt: 'asc'
       }
-    });
+    }
+  }
+});
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
