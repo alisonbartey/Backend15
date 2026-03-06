@@ -1,10 +1,15 @@
-generator client {
-  provider = "prisma-client-js"
-}
+model Account {
+  id             String   @id @default(cuid())
+  userId         String
+  accountType    String
+  accountNumber  String   @unique
+  balance        Float
+  availableBalance Float
+  status         String
+  nickname       String?
+  createdAt      DateTime @default(now())
 
-datasource db {
-  provider = "postgresql" // or mysql/sqlite
-  url      = env("DATABASE_URL")
+  user           User @relation(fields: [userId], references: [id])
 }
 
 model User {
@@ -16,16 +21,5 @@ model User {
   isActive    Boolean       @default(true)
   createdAt   DateTime      @default(now())
   transactions Transaction[]
-}
-
-model Transaction {
-  id          String   @id @default(cuid())
-  fromUserId  String
-  toUserId    String
-  amount      Float
-  status      String   @default("pending")
-  createdAt   DateTime @default(now())
-
-  fromUser    User @relation("fromUser", fields: [fromUserId], references: [id])
-  toUser      User @relation("toUser", fields: [toUserId], references: [id])
+  accounts    Account[]
 }
