@@ -199,7 +199,7 @@ router.post('/login', [
     // Update last login
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLogin: new Date() }
+      data: { updatedAt: new Date() }
     });
 
     const token = jwt.sign(
