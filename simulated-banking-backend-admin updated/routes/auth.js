@@ -166,7 +166,7 @@ router.post('/login', [
             accountType: true,
             accountNumber: true,
             balance: true,
-            availableBalance: true,
+            //availableBalance: true,
             status: true,
             nickname: true,
             routingNumber: true,
