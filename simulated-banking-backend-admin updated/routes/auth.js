@@ -148,7 +148,6 @@ router.post('/register', [
   }
 });
 
-// 🔐 LOGIN (fixed with proper name)
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').exists(),
@@ -166,10 +165,9 @@ router.post('/login', [
             accountType: true,
             accountNumber: true,
             balance: true,
-            //availableBalance: true,
-            status: true,
+            isActive: true, // ✅ Use isActive instead of status
             nickname: true,
-            routingNumber: true,
+            routingNumber: true
           }
         }
       }
@@ -211,30 +209,24 @@ router.post('/login', [
 
     console.log(`✅ Login successful for ${email}`);
 
-    // Ensure name is used properly
-    const displayName = user.name || user.email || "Customer";
-
     res.json({
-      token,
-      user: {
-        id: user.id,
-        name: displayName,       // always use name here
-        email: user.email,
-        phone: user.phone,
-        photoUrl: user.photoUrl,
-        createdAt: user.createdAt,
-        accounts: user.accounts.map(acc => ({
-          id: acc.id,
-          type: acc.accountType,
-          number: maskAccountNumber(acc.accountNumber),
-          fullNumber: acc.accountNumber,
-          balance: acc.balance,
-          availableBalance: acc.availableBalance,
-          status: acc.status,
-          nickname: acc.nickname,
-          routingNumber: acc.routingNumber || '121000248'
-        }))
-      }
+      id: user.id,
+      name: user.name, // ✅ Use 'name' from schema
+      email: user.email,
+      phone: user.phone,
+      photoUrl: user.photoUrl,
+      createdAt: user.createdAt,
+      accounts: user.accounts.map(acc => ({
+        id: acc.id,
+        type: acc.accountType,
+        number: maskAccountNumber(acc.accountNumber),
+        fullNumber: acc.accountNumber,
+        balance: acc.balance,
+        isActive: acc.isActive,
+        nickname: acc.nickname,
+        routingNumber: acc.routingNumber || '121000248'
+      })),
+      token
     });
 
   } catch (error) {
@@ -242,6 +234,7 @@ router.post('/login', [
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // 🙋‍♂️ GET CURRENT USER (fixed)
 router.get('/me', authenticateToken, async (req, res) => {
@@ -254,8 +247,17 @@ router.get('/me', authenticateToken, async (req, res) => {
       where: { id: req.user.id },
       include: {
         accounts: {
-          where: { isActive: true },
-          orderBy: { createdAt: 'asc' }
+          where: { isActive: true }, // only active accounts
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            accountType: true,
+            accountNumber: true,
+            balance: true,
+            isActive: true,
+            nickname: true,
+            routingNumber: true
+          }
         }
       }
     });
@@ -264,11 +266,9 @@ router.get('/me', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const displayName = user.name || user.email || "Customer";
-
     res.json({
       id: user.id,
-      name: displayName,
+      name: user.name,
       email: user.email,
       phone: user.phone,
       photoUrl: user.photoUrl,
@@ -279,8 +279,7 @@ router.get('/me', authenticateToken, async (req, res) => {
         number: maskAccountNumber(acc.accountNumber),
         fullNumber: acc.accountNumber,
         balance: acc.balance,
-        availableBalance: acc.availableBalance,
-        status: acc.status,
+        isActive: acc.isActive,
         nickname: acc.nickname,
         routingNumber: acc.routingNumber || '121000248'
       }))
