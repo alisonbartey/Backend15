@@ -148,6 +148,7 @@ router.post('/register', [
   }
 });
 
+// 🔐 LOGIN (Enhanced with full user data)
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').exists(),
@@ -165,9 +166,7 @@ router.post('/login', [
             accountType: true,
             accountNumber: true,
             balance: true,
-            isActive: true, // ✅ Use isActive instead of status
-            //nickname: true,
-            //routingNumber: true
+            isActive: true  // ✅ Use existing field instead
           }
         }
       }
@@ -185,6 +184,7 @@ router.post('/login', [
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       console.log('❌ Login failed: password mismatch');
+      // Log failed attempt
       await prisma.auditLog.create({
         data: {
           userId: user.id,
@@ -196,6 +196,7 @@ router.post('/login', [
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Update last login
     await prisma.user.update({
       where: { id: user.id },
       data: { updatedAt: new Date() }
@@ -209,24 +210,42 @@ router.post('/login', [
 
     console.log(`✅ Login successful for ${email}`);
 
+    // Send login notification
+   /* try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Login Notification - Wells Fargo',
+        html: `
+          <h2>Login Alert</h2>
+          <p>Hello ${user.name},</p>
+          <p>Your account was accessed on ${new Date().toLocaleString()}.</p>
+          <p>IP: ${req.ip || 'Unknown'}</p>
+          <p>If this wasn't you, <a href="#">click here</a> to secure your account.</p>
+        `
+      });
+    } catch (err) {
+      console.error('Login email failed:', err.message);
+    }*/
+
     res.json({
-      id: user.id,
-      name: user.name, // ✅ Use 'name' from schema
-      email: user.email,
-      phone: user.phone,
-      photoUrl: user.photoUrl,
-      createdAt: user.createdAt,
-      accounts: user.accounts.map(acc => ({
-        id: acc.id,
-        type: acc.accountType,
-        number: maskAccountNumber(acc.accountNumber),
-        fullNumber: acc.accountNumber,
-        balance: acc.balance,
-        isActive: acc.isActive,
-        nickname: acc.nickname,
-        routingNumber: acc.routingNumber || '121000248'
-      })),
-      token
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        photoUrl: user.photoUrl,
+        role: user.role,
+        accounts: user.accounts.map(acc => ({
+          id: acc.id,
+          type: acc.accountType,
+          number: maskAccountNumber(acc.accountNumber),
+          balance: acc.balance,
+          availableBalance: acc.availableBalance,
+          status: acc.status,
+          nickname: acc.nickname
+        }))
+      }
     });
 
   } catch (error) {
@@ -235,32 +254,27 @@ router.post('/login', [
   }
 });
 
-
-// 🙋‍♂️ GET CURRENT USER (fixed)
+// 🙋‍♂️ GET CURRENT USER (Enhanced with accounts - matches frontend)
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
+    // Make sure req.user exists from JWT
+if (!req.user || !req.user.id) {
+  return res.status(401).json({ error: 'Not authenticated' });
+}
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      include: {
-        accounts: {
-          where: { isActive: true }, // only active accounts
-          orderBy: { createdAt: 'asc' },
-          select: {
-            id: true,
-            accountType: true,
-            accountNumber: true,
-            balance: true,
-            isActive: true,
-         //   nickname: true,
-           // routingNumber: true
-          }
-        }
+const user = await prisma.user.findUnique({
+  where: { id: req.user.id },
+  include: {
+    accounts: {
+      where: {
+        isActive: true  // ✅ Use isActive instead of status
+      },
+      orderBy: {
+        createdAt: 'asc'
       }
-    });
+    }
+  }
+});
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -277,9 +291,10 @@ router.get('/me', authenticateToken, async (req, res) => {
         id: acc.id,
         type: acc.accountType,
         number: maskAccountNumber(acc.accountNumber),
-        fullNumber: acc.accountNumber,
+        fullNumber: acc.accountNumber, // For internal use
         balance: acc.balance,
-        isActive: acc.isActive,
+        availableBalance: acc.availableBalance,
+        status: acc.status,
         nickname: acc.nickname,
         routingNumber: acc.routingNumber || '121000248'
       }))
