@@ -167,7 +167,7 @@ router.post('/login', [
             balance: true,
             isActive: true, // ✅ Use isActive instead of status
             //nickname: true,
-            routingNumber: true
+            //routingNumber: true
           }
         }
       }
@@ -256,7 +256,7 @@ router.get('/me', authenticateToken, async (req, res) => {
             balance: true,
             isActive: true,
          //   nickname: true,
-            routingNumber: true
+           // routingNumber: true
           }
         }
       }
