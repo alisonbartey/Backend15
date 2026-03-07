@@ -37,8 +37,11 @@ model Account {
   isActive        Boolean? @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
-  // Relation
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Reverse relations (ADD THESE)
+  sentTransactions     Transaction[] @relation("FromAccountTransactions")
+  receivedTransactions Transaction[] @relation("ToAccountTransactions")
 
   @@map("accounts")
 }
@@ -59,9 +62,13 @@ model Transaction {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  // Relations
+  // User relations
   fromUser          User     @relation("SentTransactions", fields: [fromUserId], references: [id])
   toUser            User?    @relation("ReceivedTransactions", fields: [toUserId], references: [id])
+
+  // Account relations (ADD THESE)
+  fromAccount       Account? @relation("FromAccountTransactions", fields: [fromAccountId], references: [id])
+  toAccount         Account? @relation("ToAccountTransactions", fields: [toAccountId], references: [id])
 
   @@map("transactions")
 }
