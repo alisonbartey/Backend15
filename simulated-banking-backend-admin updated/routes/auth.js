@@ -228,25 +228,24 @@ router.post('/login', [
     }*/
 
     res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        photoUrl: user.photoUrl,
-        role: user.role,
-        accounts: user.accounts.map(acc => ({
-          id: acc.id,
-          type: acc.accountType,
-          number: maskAccountNumber(acc.accountNumber),
-          balance: acc.balance,
-          availableBalance: acc.availableBalance,
-          status: acc.status,
-          nickname: acc.nickname
-        }))
-      }
-    });
+  id: user.id,
+  name: user.fullName, // <-- use fullName
+  email: user.email,
+  phone: user.phone,
+  photoUrl: user.photoUrl,
+  createdAt: user.createdAt,
+  accounts: user.accounts.map(acc => ({
+    id: acc.id,
+    type: acc.accountType,
+    number: maskAccountNumber(acc.accountNumber),
+    fullNumber: acc.accountNumber, 
+    balance: acc.balance,
+    availableBalance: acc.availableBalance,
+    status: acc.status,
+    nickname: acc.nickname,
+    routingNumber: acc.routingNumber || '121000248'
+  }))
+});
 
   } catch (error) {
     console.error('🔥 Login error:', error);
